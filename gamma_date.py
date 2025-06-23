@@ -2,20 +2,72 @@ from datetime import datetime, timedelta
 import tkinter as tk
 from tkinter import ttk
 import os
+import sys
+import tempfile
+
+def set_window_icon(root):
+    """Handle icon setting for both development and compiled EXE"""
+    try:
+        # For compiled EXE
+        if getattr(sys, 'frozen', False):
+            # Create temp file for the icon
+            with open(os.path.join(sys._MEIPASS, "icon", "icon.ico"), "rb") as icon_file:
+                icon_data = icon_file.read()
+            
+            temp_icon = os.path.join(tempfile.gettempdir(), "temp_icon.ico")
+            with open(temp_icon, "wb") as f:
+                f.write(icon_data)
+            
+            root.iconbitmap(temp_icon)
+        else:
+            # For development
+            icon_path = os.path.join("icon", "icon.ico")
+            if os.path.exists(icon_path):
+                root.iconbitmap(icon_path)
+    except Exception as e:
+        print(f"Couldn't set window icon: {e}")
 
 # Initialize GUI
 root = tk.Tk()
 root.title("Pokémon R/S Live Battery Seed Searcher")
 
-# Set window icon if available
-try:
-    icon_path = os.path.join("icon", "icon.ico")
-    if os.path.exists(icon_path):
-        root.iconbitmap(icon_path)
-except Exception as e:
-    print(f"Couldn't set window icon: {e}")
+def set_window_icon(root):
+    """Simplified icon setting that works in both modes"""
+    try:
+        # Try multiple possible icon locations
+        possible_icon_paths = []
+        
+        # For development (script mode)
+        possible_icon_paths.append(os.path.join("icon", "icon.ico"))
+        
+        # For PyInstaller EXE
+        if getattr(sys, 'frozen', False):
+            possible_icon_paths.append(os.path.join(sys._MEIPASS, "icon", "icon.ico"))
+        
+        # Try each possible path
+        for icon_path in possible_icon_paths:
+            if os.path.exists(icon_path):
+                root.iconbitmap(icon_path)
+                return
+        
+        # Fallback to PNG if available
+        possible_png_paths = [
+            os.path.join("icon", "icon.png"),
+            os.path.join(sys._MEIPASS, "icon", "icon.png") if getattr(sys, 'frozen', False) else None
+        ]
+        
+        for png_path in possible_png_paths:
+            if png_path and os.path.exists(png_path):
+                img = tk.PhotoImage(file=png_path)
+                root.tk.call('wm', 'iconphoto', root._w, img)
+                return
+                
+    except Exception as e:
+        print(f"Couldn't set window icon: {e}")
 
-def calculate_multiple_seeds():
+set_window_icon(root)
+        
+def calculate_multiple_seeds(event=None):
     try:
         # Get inputs
         year = int(year_entry.get())
@@ -131,10 +183,14 @@ result_tree.heading("Seed", text="Seed")
 result_tree.column("Time", width=100, anchor="center")
 result_tree.column("Seed", width=100, anchor="center")
 
-# Add scrollbar
-scrollbar = ttk.Scrollbar(results_frame, orient="vertical", command=result_tree.yview)
-scrollbar.pack(side="right", fill="y")
-result_tree.configure(yscrollcommand=scrollbar.set)
+# Display results 
 result_tree.pack(fill="both", expand=True)
+
+# Bind both Enter keys to the calculate function
+root.bind('<Return>', calculate_multiple_seeds)
+root.bind('<KP_Enter>', calculate_multiple_seeds)
+
+# Set focus to first entry field for better UX
+year_entry.focus_set()
 
 root.mainloop()
